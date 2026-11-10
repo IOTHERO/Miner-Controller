@@ -9,7 +9,7 @@
  *  - READ ONLY: no command that changes a miner is ever sent.
  *
  * Needs: Arduino-ESP32 core 3.x, library "ArduinoJson" 7.x
- * Wiring: see pins.h / README.md      Serial Monitor: 115200
+ * Wiring: see config.h / README.md      Serial Monitor: 115200
  */
 
 #include <WiFi.h>
@@ -18,7 +18,7 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
-#include "pins.h"
+#include "config.h"
 #include "util.h"
 #include "settings.h"
 #include "devices.h"
@@ -28,7 +28,7 @@
 #include "webui.h"
 #include "web.h"
 
-SET_LOOP_TASK_STACK_SIZE(16 * 1024);  // detail requests run in the web handler
+SET_LOOP_TASK_STACK_SIZE(LOOP_STACK_BYTES);
 
 static uint32_t wifiStartMs = 0;
 static uint32_t lastScanEndMs = 0;
@@ -39,7 +39,7 @@ static void startAp() {
   if (apOn) return;
   String mac = WiFi.macAddress();
   mac.replace(":", "");
-  String name = "MinerScan-" + mac.substring(8);
+  String name = String(AP_NAME_PREFIX) + mac.substring(8);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(name.c_str(), cfg.apPass.c_str());
   apOn = true;
@@ -50,7 +50,7 @@ static void startAp() {
 static void netBegin() {
   SPI.begin(PIN_W5500_SCLK, PIN_W5500_MISO, PIN_W5500_MOSI);
   if (!ETH.begin(ETH_PHY_W5500, 1, PIN_W5500_CS, PIN_W5500_INT, PIN_W5500_RST, SPI)) {
-    Serial.println(F("[eth] W5500 init failed - check wiring (pins.h)"));
+    Serial.println(F("[eth] W5500 init failed - check wiring (config.h)"));
   }
   if (cfg.ethStatic) {
     uint32_t ip, gw, mask;
@@ -83,7 +83,7 @@ static void wifiLoop() {
   }
   printed = false;
   // No WiFi after 25 s -> open the setup hotspot so the page stays reachable
-  if (!apOn && cfg.wifiSsid.length() > 0 && millis() - wifiStartMs > 25000) {
+  if (!apOn && cfg.wifiSsid.length() > 0 && millis() - wifiStartMs > WIFI_FALLBACK_MS) {
     startAp();
   }
 }
@@ -131,7 +131,7 @@ static void autoScanLoop() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUD);
   delay(500);
   Serial.println();
   Serial.println(F("Miner Monitoring  (read only)"));
@@ -142,8 +142,8 @@ void setup() {
   refreshScanParams();
   netBegin();
   webBegin();
-  xTaskCreate(pollTask, "poll", 10240, NULL, 1, NULL);
-  if (cfg.authPass == "admin") {
+  xTaskCreate(pollTask, "poll", POLL_STACK_BYTES, NULL, 1, NULL);
+  if (cfg.authPass == DEF_AUTH_PASS) {
     Serial.println(F("[web] login admin / admin  - change the password in Settings!"));
   }
 }

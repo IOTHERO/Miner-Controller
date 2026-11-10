@@ -6,9 +6,6 @@
 // make outgoing connections, so the web server (loop task) is never blocked.
 // ---------------------------------------------------------------------------
 
-#define MAX_SCAN_HOSTS 1024
-#define MAX_SCAN_PORTS 6
-
 struct ScanState {
   volatile bool running;
   volatile bool stop;
@@ -138,7 +135,7 @@ static bool startScan(uint32_t from, uint32_t to, String& err) {
     return false;
   }
   if ((to - from) + 1 > MAX_SCAN_HOSTS) {
-    err = "range too large (max 1024 addresses)";
+    err = "range too large (too many addresses)";
     return false;
   }
   if (ipU32(ETH.localIP()) == 0) {
@@ -148,7 +145,7 @@ static bool startScan(uint32_t from, uint32_t to, String& err) {
   refreshScanParams();
   int workers = cfg.parallel;
   if (workers < 1) workers = 1;
-  if (workers > 6) workers = 6;
+  if (workers > LIM_PARALLEL_MAX) workers = LIM_PARALLEL_MAX;
 
   scanSt.base = from;
   scanSt.total = (to - from) + 1;
@@ -162,7 +159,7 @@ static bool startScan(uint32_t from, uint32_t to, String& err) {
   Serial.printf("[scan] %s - %s  (%u addresses, %d workers)\n", ipStr(from).c_str(),
                 ipStr(to).c_str(), (unsigned)scanSt.total, workers);
   for (int i = 0; i < workers; i++) {
-    xTaskCreate(scanWorker, "scan", 8192, NULL, 1, NULL);
+    xTaskCreate(scanWorker, "scan", SCAN_STACK_BYTES, NULL, 1, NULL);
   }
   return true;
 }
@@ -192,14 +189,14 @@ static void pollOne(uint32_t ip) {
     devSetStats(ip, s);
   } else {
     int p = atoi(d.ports);
-    bool open = p > 0 && tcpOpen(ip, (uint16_t)p, 500);
+    bool open = p > 0 && tcpOpen(ip, (uint16_t)p, POLL_PORT_CHECK_MS);
     devPollFail(ip, open);
   }
 }
 
 static void pollTask(void*) {
   for (;;) {
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(POLL_TICK_MS));
     if (!cfg.autoPoll || scanSt.running) continue;
     bool did = false;
     for (int i = 0; i < MAX_DEV; i++) {

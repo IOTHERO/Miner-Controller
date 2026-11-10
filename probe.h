@@ -71,7 +71,7 @@ static String rawRequest(uint32_t ip, uint16_t port, const char* req, uint32_t c
 static int httpGet(uint32_t ip, const char* path, String& hdr, String& body, size_t maxBytes) {
   String req = String("GET ") + path + " HTTP/1.0\r\nHost: " + ipStr(ip) +
                "\r\nUser-Agent: MinerScan\r\nAccept: */*\r\nConnection: close\r\n\r\n";
-  String raw = rawRequest(ip, 80, req.c_str(), 1200, 3500, maxBytes, true, 600);
+  String raw = rawRequest(ip, 80, req.c_str(), HTTP_CONNECT_MS, HTTP_TOTAL_MS, maxBytes, true, HTTP_IDLE_MS);
   hdr = "";
   body = "";
   if (raw.length() < 12) {
@@ -96,7 +96,7 @@ static void identifyHttp(uint32_t ip, Dev& d) {
   String h, b;
 
   // Bitaxe / NerdAxe style (ESP-Miner firmware)
-  int code = httpGet(ip, "/api/system/info", h, b, 3000);
+  int code = httpGet(ip, "/api/system/info", h, b, HTTP_PROBE_BYTES);
   if (code == 200 && (b.indexOf("hashRate") >= 0 || b.indexOf("ASICModel") >= 0)) {
     JsonDocument doc;
     if (!deserializeJson(doc, jsonSlice(b))) {
@@ -113,7 +113,7 @@ static void identifyHttp(uint32_t ip, Dev& d) {
   }
 
   // Generic: look at the front page / login challenge
-  code = httpGet(ip, "/", h, b, 3000);
+  code = httpGet(ip, "/", h, b, HTTP_PROBE_BYTES);
   if (code == 0) {
     return;
   }
@@ -169,7 +169,7 @@ static void identify(uint32_t ip, bool has4028, bool has80, Dev& d) {
 
   if (has4028) {
     // cgminer / bmminer style API (Antminer, Avalon, many others)
-    String r = rawRequest(ip, 4028, "{\"command\":\"version\"}\n", 1000, 2500, 4000, false, 300);
+    String r = rawRequest(ip, 4028, "{\"command\":\"version\"}\n", PROBE_CONNECT_MS, PROBE_TOTAL_MS, PROBE_MAX_BYTES, false, PROBE_IDLE_MS);
     String lo = r;
     lo.toLowerCase();
     if (r.indexOf("\"VERSION\"") >= 0) {
@@ -203,7 +203,7 @@ static void identify(uint32_t ip, bool has4028, bool has80, Dev& d) {
 
     // Whatsminer API: {"cmd": "..."}
     if (d.brand[0] == '?') {
-      String r2 = rawRequest(ip, 4028, "{\"cmd\":\"get_version\"}\n", 1000, 2500, 4000, false, 300);
+      String r2 = rawRequest(ip, 4028, "{\"cmd\":\"get_version\"}\n", PROBE_CONNECT_MS, PROBE_TOTAL_MS, PROBE_MAX_BYTES, false, PROBE_IDLE_MS);
       if (r2.indexOf("\"Msg\"") >= 0) {
         strcpy(d.brand, "Whatsminer");
         JsonDocument doc;

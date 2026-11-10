@@ -3,7 +3,7 @@
 #include "scanner.h"
 #include "webui.h"
 
-static WebServer server(80);
+static WebServer server(WEB_PORT);
 static bool apOn = false;
 
 static bool auth() {
@@ -209,14 +209,14 @@ static void handleSettingsPost() {
   }
   if (b["wifiPass"].is<const char*>()) {
     String v = b["wifiPass"].as<String>();
-    if (v.length() >= 8 || v.length() == 0) {
+    if (v.length() >= LIM_PASS_MIN || v.length() == 0) {
       cfg.wifiPass = v;
       net = true;
     }
   }
   if (b["apPass"].is<const char*>()) {
     String v = b["apPass"].as<String>();
-    if (v.length() >= 8) {
+    if (v.length() >= LIM_PASS_MIN) {
       cfg.apPass = v;
       net = true;
     }
@@ -253,21 +253,21 @@ static void handleSettingsPost() {
   }
   if (b["timeoutMs"].is<int>()) {
     int v = b["timeoutMs"].as<int>();
-    if (v >= 150 && v <= 3000) cfg.timeoutMs = v;
+    if (v >= LIM_TIMEOUT_MIN && v <= LIM_TIMEOUT_MAX) cfg.timeoutMs = v;
   }
   if (b["parallel"].is<int>()) {
     int v = b["parallel"].as<int>();
-    if (v >= 1 && v <= 6) cfg.parallel = v;
+    if (v >= 1 && v <= LIM_PARALLEL_MAX) cfg.parallel = v;
   }
   if (b["autoScan"].is<bool>()) cfg.autoScan = b["autoScan"].as<bool>();
   if (b["autoScanMin"].is<int>()) {
     int v = b["autoScanMin"].as<int>();
-    if (v >= 1 && v <= 1440) cfg.autoScanMin = v;
+    if (v >= LIM_AUTO_SCAN_MIN && v <= LIM_AUTO_SCAN_MAX) cfg.autoScanMin = v;
   }
   if (b["autoPoll"].is<bool>()) cfg.autoPoll = b["autoPoll"].as<bool>();
   if (b["pollSec"].is<int>()) {
     int v = b["pollSec"].as<int>();
-    if (v >= 10 && v <= 3600) cfg.pollSec = v;
+    if (v >= LIM_POLL_MIN && v <= LIM_POLL_MAX) cfg.pollSec = v;
   }
   if (b["listUnknown"].is<bool>()) cfg.listUnknown = b["listUnknown"].as<bool>();
   if (b["authUser"].is<const char*>()) {
@@ -276,7 +276,7 @@ static void handleSettingsPost() {
   }
   if (b["authPass"].is<const char*>()) {
     String v = b["authPass"].as<String>();
-    if (v.length() >= 4) cfg.authPass = v;
+    if (v.length() >= LIM_AUTH_PASS_MIN) cfg.authPass = v;
   }
 
   saveSettings();

@@ -2,8 +2,6 @@
 #include <Arduino.h>
 #include "util.h"
 
-#define MAX_DEV 48
-
 // Short summary used in the list (filled by polling).
 struct Summ {
   bool ok = false;

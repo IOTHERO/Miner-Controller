@@ -78,8 +78,8 @@ static String strAt(JsonObject o, const char* k1, const char* k2) {
 static bool wmCmd(uint32_t ip, const char* cmd, JsonDocument& doc) {
   char req[64];
   snprintf(req, sizeof(req), "{\"cmd\":\"%s\"}\n", cmd);
-  delay(300);  // the miner API dislikes back-to-back connections
-  String raw = rawRequest(ip, 4028, req, 1500, 6000, 24000, false, 400);
+  delay(WM_CMD_GAP_MS);
+  String raw = rawRequest(ip, 4028, req, API_CONNECT_MS, API_TOTAL_MS, API_MAX_BYTES_WM, false, API_IDLE_MS);
   raw.replace(",}", "}");
   raw.replace(",]", "]");
   if (raw.length() == 0) return false;
@@ -264,8 +264,8 @@ static bool detailWhatsminer(uint32_t ip, JsonDocument& out, Summ& s) {
 static bool cgCmd(uint32_t ip, const char* cmd, JsonDocument& doc) {
   char req[64];
   snprintf(req, sizeof(req), "{\"command\":\"%s\"}\n", cmd);
-  delay(200);
-  String raw = rawRequest(ip, 4028, req, 1500, 6000, 20000, false, 400);
+  delay(CG_CMD_GAP_MS);
+  String raw = rawRequest(ip, 4028, req, API_CONNECT_MS, API_TOTAL_MS, API_MAX_BYTES_CG, false, API_IDLE_MS);
   if (raw.length() == 0) return false;
   doc.clear();
   return !deserializeJson(doc, jsonSlice(raw));
@@ -362,7 +362,7 @@ static bool detailAxe(uint32_t ip, JsonDocument& out, Summ& s) {
   JsonArray pools = out["pools"].to<JsonArray>();
   out["errors"].to<JsonArray>();
   String h, b;
-  int code = httpGet(ip, "/api/system/info", h, b, 4000);
+  int code = httpGet(ip, "/api/system/info", h, b, HTTP_DETAIL_BYTES);
   if (code != 200) return false;
   JsonDocument doc;
   if (deserializeJson(doc, jsonSlice(b))) return false;

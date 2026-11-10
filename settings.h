@@ -23,32 +23,32 @@ static Settings cfg;
 
 static void loadSettings() {
   Preferences p;
-  p.begin("minerscan", false);
-  cfg.wifiSsid = p.getString("wSsid", "");
-  cfg.wifiPass = p.getString("wPass", "");
-  cfg.apPass = p.getString("apPass", "minerscan");
-  cfg.ethStatic = p.getBool("eStatic", false);
-  cfg.ethIp = p.getString("eIp", "192.168.1.60");
-  cfg.ethGw = p.getString("eGw", "192.168.1.1");
-  cfg.ethMask = p.getString("eMask", "255.255.255.0");
-  cfg.scanFrom = p.getString("sFrom", "192.168.1.1");
-  cfg.scanTo = p.getString("sTo", "192.168.1.254");
-  cfg.ports = p.getString("ports", "4028,80");
-  cfg.timeoutMs = p.getUShort("toMs", 400);
-  cfg.parallel = p.getUChar("par", 4);
-  cfg.autoScan = p.getBool("aScan", false);
-  cfg.autoScanMin = p.getUShort("aScanMin", 30);
-  cfg.autoPoll = p.getBool("aPoll", true);
-  cfg.pollSec = p.getUShort("pollSec", 30);
-  cfg.listUnknown = p.getBool("lUnk", false);
-  cfg.authUser = p.getString("aUser", "admin");
-  cfg.authPass = p.getString("aPass", "admin");
+  p.begin(NVS_NAMESPACE, false);
+  cfg.wifiSsid = p.getString("wSsid", DEF_WIFI_SSID);
+  cfg.wifiPass = p.getString("wPass", DEF_WIFI_PASS);
+  cfg.apPass = p.getString("apPass", DEF_AP_PASS);
+  cfg.ethStatic = p.getBool("eStatic", DEF_ETH_STATIC);
+  cfg.ethIp = p.getString("eIp", DEF_ETH_IP);
+  cfg.ethGw = p.getString("eGw", DEF_ETH_GW);
+  cfg.ethMask = p.getString("eMask", DEF_ETH_MASK);
+  cfg.scanFrom = p.getString("sFrom", DEF_SCAN_FROM);
+  cfg.scanTo = p.getString("sTo", DEF_SCAN_TO);
+  cfg.ports = p.getString("ports", DEF_PORTS);
+  cfg.timeoutMs = p.getUShort("toMs", DEF_TIMEOUT_MS);
+  cfg.parallel = p.getUChar("par", DEF_PARALLEL);
+  cfg.autoScan = p.getBool("aScan", DEF_AUTO_SCAN);
+  cfg.autoScanMin = p.getUShort("aScanMin", DEF_AUTO_SCAN_MIN);
+  cfg.autoPoll = p.getBool("aPoll", DEF_AUTO_POLL);
+  cfg.pollSec = p.getUShort("pollSec", DEF_POLL_SEC);
+  cfg.listUnknown = p.getBool("lUnk", DEF_LIST_UNKNOWN);
+  cfg.authUser = p.getString("aUser", DEF_AUTH_USER);
+  cfg.authPass = p.getString("aPass", DEF_AUTH_PASS);
   p.end();
 }
 
 static void saveSettings() {
   Preferences p;
-  p.begin("minerscan", false);
+  p.begin(NVS_NAMESPACE, false);
   p.putString("wSsid", cfg.wifiSsid);
   p.putString("wPass", cfg.wifiPass);
   p.putString("apPass", cfg.apPass);
