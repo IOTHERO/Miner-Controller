@@ -24,6 +24,9 @@ static Settings cfg;
 static void loadSettings() {
   Preferences p;
   p.begin(NVS_NAMESPACE, false);
+  if (RESET_SETTINGS_ON_BOOT) {
+    p.clear();  // saved values are dropped, DEF_* from config.h apply
+  }
   cfg.wifiSsid = p.getString("wSsid", DEF_WIFI_SSID);
   cfg.wifiPass = p.getString("wPass", DEF_WIFI_PASS);
   cfg.apPass = p.getString("apPass", DEF_AP_PASS);

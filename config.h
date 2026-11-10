@@ -1,102 +1,173 @@
 #pragma once
 // ===========================================================================
-//  Miner Monitoring - the ONE place for settings and setup values.
-//  Compile-time values live here. Values the user changes from the web page
-//  (WiFi, scan range, ...) start from the DEF_* defaults below and are then
-//  stored in flash.
+//  Miner Monitoring - تنظیمات و ستاپ پروژه (فقط همین یک فایل)
+// ===========================================================================
+//
+//  دو دسته مقدار این‌جاست:
+//    ۱) «بخش ۱» : مقادیری که شما باید پر کنید (نام دستگاه، WiFi، رمزها، IP ...)
+//    ۲) «بخش ۲ تا ۸» : مقادیر فنی؛ معمولاً نیازی به تغییر ندارند
+//
+//  نکته‌ی مهم: مقادیر DEF_* فقط «پیش‌فرض اولین روشن شدن» هستند.
+//  بعد از اولین روشن شدن، همه‌ی آن‌ها از صفحه‌ی وب (تب تنظیمات) تغییر می‌کنند
+//  و در حافظه‌ی فلش ذخیره می‌شوند؛ پس آپلود دوباره لازم نیست.
+//  اگر بعد از آپلود، مقدار جدید اعمال نشد، چون مقدار قبلی در فلش ذخیره است:
+//  RESET_SETTINGS_ON_BOOT را یک بار true کنید، آپلود کنید، بعد دوباره false.
+//
+//  رمزها در گیت: برای اینکه رمز واقعی وارد گیت نشود، می‌توانید مقادیر بخش ۱ را
+//  به‌جای این فایل در فایل «config.local.h» (کنار همین فایل) بنویسید.
+//  آن فایل در .gitignore است و در صورت وجود، به‌جای مقادیر زیر استفاده می‌شود.
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
-// 1. Hardware: W5500 Ethernet module -> ESP32-WROOM-32 (VSPI)
-// ---------------------------------------------------------------------------
-#define PIN_W5500_SCLK 18
-#define PIN_W5500_MISO 19
-#define PIN_W5500_MOSI 23
-#define PIN_W5500_CS   5
-#define PIN_W5500_INT  4
-#define PIN_W5500_RST  16
+#if __has_include("config.local.h")
+#include "config.local.h"
+#endif
 
-// ---------------------------------------------------------------------------
-// 2. General
-// ---------------------------------------------------------------------------
-#define SERIAL_BAUD        115200
-#define WEB_PORT           80
-#define NVS_NAMESPACE      "minerscan"   // flash namespace of the saved settings
-#define LOOP_STACK_BYTES   (16 * 1024)   // detail requests run in the web handler
-#define SCAN_STACK_BYTES   8192
-#define POLL_STACK_BYTES   10240
+// ===========================================================================
+// ۱. بخش‌هایی که باید پر کنید
+// ===========================================================================
 
-// ---------------------------------------------------------------------------
-// 3. Defaults for the first boot (changed later from the web page)
-// ---------------------------------------------------------------------------
-#define DEF_WIFI_SSID      ""
-#define DEF_WIFI_PASS      ""
-#define DEF_AP_PASS        "minerscan"   // setup hotspot password (min 8 chars)
+// --- نام دستگاه / وب‌سرور ---------------------------------------------------
+// فقط حرف انگلیسی کوچک، عدد و خط تیره (بدون فاصله).
+// صفحه‌ی وب بعد از اتصال، با http://<این نام>.local/ هم باز می‌شود
+// (اگر سیستم‌عامل شما mDNS را پشتیبانی کند) و نام هات‌اسپات راه‌اندازی هم از آن ساخته می‌شود.
+#ifndef DEVICE_NAME
+#define DEVICE_NAME        "minermonitor"
+#endif
+
+// --- WiFi (فقط برای باز کردن صفحه‌ی وب؛ اسکن روی Ethernet است) ---------------
+// اگر خالی بگذارید، دستگاه هات‌اسپات راه‌اندازی باز می‌کند و از آنجا WiFi را وارد می‌کنید.
+#ifndef DEF_WIFI_SSID
+#define DEF_WIFI_SSID      ""            // نام WiFi خانه/کارگاه
+#endif
+#ifndef DEF_WIFI_PASS
+#define DEF_WIFI_PASS      ""            // رمز WiFi (حداقل ۸ کاراکتر)
+#endif
+
+// --- رمز هات‌اسپات راه‌اندازی (وقتی WiFi وصل نمی‌شود) ------------------------
+#ifndef DEF_AP_PASS
+#define DEF_AP_PASS        "minerscan"   // حداقل ۸ کاراکتر؛ عوضش کنید
+#endif
+
+// --- ورود به صفحه‌ی وب -------------------------------------------------------
+#ifndef DEF_AUTH_USER
+#define DEF_AUTH_USER      "admin"       // نام کاربری
+#endif
+#ifndef DEF_AUTH_PASS
+#define DEF_AUTH_PASS      "admin"       // رمز؛ حتماً عوض کنید (حداقل ۴ کاراکتر)
+#endif
+
+// --- شبکه‌ی سیمی (W5500) -----------------------------------------------------
+// false = IP خودکار از روتر (DHCP، پیشنهادی)    true = IP ثابت با مقادیر زیر
+#ifndef DEF_ETH_STATIC
 #define DEF_ETH_STATIC     false
-#define DEF_ETH_IP         "192.168.1.60"
-#define DEF_ETH_GW         "192.168.1.1"
+#endif
+#ifndef DEF_ETH_IP
+#define DEF_ETH_IP         "192.168.1.60"    // IP ثابت دستگاه (فقط اگر ثابت true باشد)
+#endif
+#ifndef DEF_ETH_GW
+#define DEF_ETH_GW         "192.168.1.1"     // آدرس روتر
+#endif
+#ifndef DEF_ETH_MASK
 #define DEF_ETH_MASK       "255.255.255.0"
+#endif
+
+// --- رنج اسکن ----------------------------------------------------------------
+// باید در همان شبکه‌ی ماینرها باشد (حداکثر MAX_SCAN_HOSTS آدرس)
+#ifndef DEF_SCAN_FROM
 #define DEF_SCAN_FROM      "192.168.1.1"
+#endif
+#ifndef DEF_SCAN_TO
 #define DEF_SCAN_TO        "192.168.1.254"
-#define DEF_PORTS          "4028,80"
-#define DEF_TIMEOUT_MS     400           // TCP connect timeout while scanning
-#define DEF_PARALLEL       4             // parallel connections while scanning
-#define DEF_AUTO_SCAN      false
-#define DEF_AUTO_SCAN_MIN  30            // minutes between automatic scans
-#define DEF_AUTO_POLL      true
-#define DEF_POLL_SEC       30            // seconds between readings of one miner
-#define DEF_LIST_UNKNOWN   false         // also list non-miner devices
-#define DEF_AUTH_USER      "admin"
-#define DEF_AUTH_PASS      "admin"       // change it in Settings!
+#endif
 
-// ---------------------------------------------------------------------------
-// 4. Limits (what the web page may set)
-// ---------------------------------------------------------------------------
-#define LIM_TIMEOUT_MIN    150
-#define LIM_TIMEOUT_MAX    3000
-#define LIM_PARALLEL_MAX   6             // lwIP has ~10 sockets, the web server needs some
-#define LIM_AUTO_SCAN_MIN  1
-#define LIM_AUTO_SCAN_MAX  1440
-#define LIM_POLL_MIN       10
-#define LIM_POLL_MAX       3600
-#define LIM_PASS_MIN       8             // WiFi / hotspot passwords
-#define LIM_AUTH_PASS_MIN  4             // web page password
+// --- بازنشانی تنظیمات ذخیره‌شده ----------------------------------------------
+// true = در هر بار روشن شدن، مقادیر ذخیره‌شده در فلش پاک می‌شود و پیش‌فرض‌ها اعمال می‌شود.
+// فقط برای یک بار استفاده کنید و بعد false کنید، وگرنه تنظیمات صفحه‌ی وب هر بار پاک می‌شود.
+#ifndef RESET_SETTINGS_ON_BOOT
+#define RESET_SETTINGS_ON_BOOT false
+#endif
 
-// ---------------------------------------------------------------------------
-// 5. Capacity
-// ---------------------------------------------------------------------------
-#define MAX_DEV            48            // devices kept in the list
-#define MAX_SCAN_HOSTS     1024          // addresses per scan
-#define MAX_SCAN_PORTS     6             // ports probed per host
+// ===========================================================================
+// ۲. سخت‌افزار: ماژول W5500 به ESP32-WROOM-32 (باس VSPI)
+// ===========================================================================
+// اگر سیم‌کشی را عوض کردید، فقط همین شماره‌ها را تغییر دهید.
+// از GPIO 0، 2، 12 و 15 استفاده نکنید (روی بوت اثر دارند).
+#define PIN_W5500_SCLK 18                // SCLK
+#define PIN_W5500_MISO 19                // MISO
+#define PIN_W5500_MOSI 23                // MOSI
+#define PIN_W5500_CS   5                 // CS (روی ماژول: SCS)
+#define PIN_W5500_INT  4                 // INT
+#define PIN_W5500_RST  16                // RST
 
-// ---------------------------------------------------------------------------
-// 6. WiFi
-// ---------------------------------------------------------------------------
-#define AP_NAME_PREFIX     "MinerMonitor-"
-#define WIFI_FALLBACK_MS   25000         // no WiFi after this long -> open the hotspot
+// ===========================================================================
+// ۳. عمومی
+// ===========================================================================
+#define SERIAL_BAUD        115200        // سرعت سریال مانیتور
+#define WEB_PORT           80            // پورت صفحه‌ی وب
+#define NVS_NAMESPACE      "minerscan"   // نام فضای ذخیره‌ی تنظیمات در فلش (تغییرش تنظیمات قبلی را نادیده می‌گیرد)
+#define LOOP_STACK_BYTES   (16 * 1024)   // حافظه‌ی استک حلقه‌ی اصلی (درخواست مشخصات داخل آن اجرا می‌شود)
+#define SCAN_STACK_BYTES   8192          // استک هر تسک اسکن
+#define POLL_STACK_BYTES   10240         // استک تسک خواندن دوره‌ای
 
-// ---------------------------------------------------------------------------
-// 7. Timing of the miner requests (milliseconds / bytes)
-// ---------------------------------------------------------------------------
-// identification probes
-#define PROBE_CONNECT_MS   1000
-#define PROBE_TOTAL_MS     2500
-#define PROBE_MAX_BYTES    4000
-#define PROBE_IDLE_MS      300
-// HTTP (port 80)
+// ===========================================================================
+// ۴. پیش‌فرض‌های فنی (بعد از اولین روشن شدن از صفحه‌ی وب عوض می‌شوند)
+// ===========================================================================
+#define DEF_PORTS          "4028,80"     // پورت‌های اسکن (با کاما). 4028 = API ماینر، 80 = وب
+#define DEF_TIMEOUT_MS     400           // مهلت اتصال TCP هنگام اسکن (میلی‌ثانیه)
+#define DEF_PARALLEL       4             // تعداد اتصال هم‌زمان هنگام اسکن
+#define DEF_AUTO_SCAN      false         // اسکن خودکار دوره‌ای
+#define DEF_AUTO_SCAN_MIN  30            // فاصله‌ی اسکن خودکار (دقیقه)
+#define DEF_AUTO_POLL      true          // خواندن خودکار اطلاعات دستگاه‌های پیدا شده
+#define DEF_POLL_SEC       30            // فاصله‌ی خواندن هر ماینر (ثانیه)
+#define DEF_LIST_UNKNOWN   false         // نمایش دستگاه‌های غیر ماینر (روتر، دوربین ...)
+
+// ===========================================================================
+// ۵. محدودیت‌ها (چیزی که صفحه‌ی وب اجازه‌ی تنظیمش را دارد)
+// ===========================================================================
+#define LIM_TIMEOUT_MIN    150           // کمترین مهلت اتصال (ms)
+#define LIM_TIMEOUT_MAX    3000          // بیشترین مهلت اتصال (ms)
+#define LIM_PARALLEL_MAX   6             // بیشترین اتصال هم‌زمان (lwIP حدود ۱۰ سوکت دارد؛ بقیه برای وب‌سرور)
+#define LIM_AUTO_SCAN_MIN  1             // کمترین فاصله‌ی اسکن خودکار (دقیقه)
+#define LIM_AUTO_SCAN_MAX  1440          // بیشترین فاصله‌ی اسکن خودکار (دقیقه)
+#define LIM_POLL_MIN       10            // کمترین فاصله‌ی خواندن (ثانیه)
+#define LIM_POLL_MAX       3600          // بیشترین فاصله‌ی خواندن (ثانیه)
+#define LIM_PASS_MIN       8             // کمترین طول رمز WiFi و هات‌اسپات
+#define LIM_AUTH_PASS_MIN  4             // کمترین طول رمز صفحه‌ی وب
+
+// ===========================================================================
+// ۶. ظرفیت (محدود به حافظه‌ی RAM)
+// ===========================================================================
+#define MAX_DEV            48            // حداکثر دستگاه در لیست
+#define MAX_SCAN_HOSTS     1024          // حداکثر آدرس در یک اسکن
+#define MAX_SCAN_PORTS     6             // حداکثر پورت برای هر میزبان
+
+// ===========================================================================
+// ۷. WiFi
+// ===========================================================================
+#define WIFI_FALLBACK_MS   25000         // اگر WiFi تا این زمان (ms) وصل نشد، هات‌اسپات راه‌اندازی باز می‌شود
+
+// ===========================================================================
+// ۸. زمان‌بندی درخواست‌ها به ماینر (میلی‌ثانیه / بایت)
+// ===========================================================================
+// تشخیص برند (هنگام اسکن)
+#define PROBE_CONNECT_MS   1000          // مهلت اتصال
+#define PROBE_TOTAL_MS     2500          // مهلت کل پاسخ
+#define PROBE_MAX_BYTES    4000          // حداکثر حجم پاسخ
+#define PROBE_IDLE_MS      300           // سکوت لازم برای پایان پاسخ
+// HTTP (پورت 80)
 #define HTTP_CONNECT_MS    1200
 #define HTTP_TOTAL_MS      3500
 #define HTTP_IDLE_MS       600
-#define HTTP_PROBE_BYTES   3000
-#define HTTP_DETAIL_BYTES  4000
-// miner API on port 4028 (details)
+#define HTTP_PROBE_BYTES   3000          // حجم پاسخ هنگام تشخیص برند
+#define HTTP_DETAIL_BYTES  4000          // حجم پاسخ هنگام خواندن مشخصات (Bitaxe)
+// API ماینر روی پورت 4028 (خواندن مشخصات)
 #define API_CONNECT_MS     1500
 #define API_TOTAL_MS       6000
 #define API_IDLE_MS        400
 #define API_MAX_BYTES_WM   24000         // Whatsminer
-#define API_MAX_BYTES_CG   20000         // cgminer family
-#define WM_CMD_GAP_MS      300           // the miner dislikes back-to-back connections
+#define API_MAX_BYTES_CG   20000         // خانواده‌ی cgminer (Antminer، Avalon)
+#define WM_CMD_GAP_MS      300           // فاصله بین دو دستور پشت‌سرهم (ماینر اتصال پشت‌سرهم را دوست ندارد)
 #define CG_CMD_GAP_MS      200
-// background reading
-#define POLL_TICK_MS       1000
-#define POLL_PORT_CHECK_MS 500
+// خواندن پس‌زمینه
+#define POLL_TICK_MS       1000          // هر چند ms یک بار بررسی می‌شود کدام ماینر نوبتش است
+#define POLL_PORT_CHECK_MS 500           // مهلت بررسی باز بودن پورت وقتی خواندن شکست خورد

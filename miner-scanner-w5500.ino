@@ -17,6 +17,7 @@
 #include <SPI.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
+#include <ESPmDNS.h>
 
 #include "config.h"
 #include "util.h"
@@ -39,7 +40,7 @@ static void startAp() {
   if (apOn) return;
   String mac = WiFi.macAddress();
   mac.replace(":", "");
-  String name = String(AP_NAME_PREFIX) + mac.substring(8);
+  String name = String(DEVICE_NAME) + "-" + mac.substring(8);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(name.c_str(), cfg.apPass.c_str());
   apOn = true;
@@ -63,6 +64,7 @@ static void netBegin() {
 
   wifiStartMs = millis();
   if (cfg.wifiSsid.length() > 0) {
+    WiFi.setHostname(DEVICE_NAME);
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
     WiFi.begin(cfg.wifiSsid.c_str(), cfg.wifiPass.c_str());
@@ -88,12 +90,20 @@ static void wifiLoop() {
   }
 }
 
+static void startMdns() {
+  MDNS.end();
+  if (MDNS.begin(DEVICE_NAME)) {
+    MDNS.addService("http", "tcp", WEB_PORT);
+  }
+}
+
 static void ethLoop() {
   uint32_t ip = ipU32(ETH.localIP());
   if (ip != lastEthIp) {
     lastEthIp = ip;
     if (ip != 0) {
       Serial.printf("[eth] up, IP %s, web page: http://%s/\n", ipStr(ip).c_str(), ipStr(ip).c_str());
+      startMdns();
     } else {
       Serial.println(F("[eth] no IP (cable? DHCP?)"));
     }
@@ -135,6 +145,8 @@ void setup() {
   delay(500);
   Serial.println();
   Serial.println(F("Miner Monitoring  (read only)"));
+  Serial.printf("Name: %s   (http://%s.local/)
+", DEVICE_NAME, DEVICE_NAME);
   Serial.println(F("Serial: 's' = start scan, 'p' = print table"));
 
   loadSettings();
@@ -142,6 +154,7 @@ void setup() {
   refreshScanParams();
   netBegin();
   webBegin();
+  startMdns();
   xTaskCreate(pollTask, "poll", POLL_STACK_BYTES, NULL, 1, NULL);
   if (cfg.authPass == DEF_AUTH_PASS) {
     Serial.println(F("[web] login admin / admin  - change the password in Settings!"));
