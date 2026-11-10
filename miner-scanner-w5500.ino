@@ -36,16 +36,19 @@ static uint32_t lastScanEndMs = 0;
 static uint32_t lastEthIp = 0;
 static bool autoScanPending = true;
 
-static void startAp() {
+// The ESP32's own WiFi network. The web page is always reachable on AP_IP.
+static void startAp(bool withSta) {
   if (apOn) return;
-  String mac = WiFi.macAddress();
-  mac.replace(":", "");
-  String name = String(DEVICE_NAME) + "-" + mac.substring(8);
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(name.c_str(), cfg.apPass.c_str());
+  String pass = cfg.apPass.length() >= LIM_PASS_MIN ? cfg.apPass : String(DEF_AP_PASS);
+  IPAddress aip, amask;
+  aip.fromString(AP_IP);
+  amask.fromString(AP_MASK);
+  WiFi.mode(withSta ? WIFI_AP_STA : WIFI_AP);
+  WiFi.softAPConfig(aip, aip, amask);
+  WiFi.softAP(cfg.apSsid.c_str(), pass.c_str());
   apOn = true;
-  Serial.printf("[wifi] setup hotspot \"%s\"  password \"%s\"  http://%s/\n", name.c_str(),
-                cfg.apPass.c_str(), WiFi.softAPIP().toString().c_str());
+  Serial.printf("[wifi] hotspot \"%s\"  (password: see Settings / config.h)  web page: http://%s/\n",
+                cfg.apSsid.c_str(), WiFi.softAPIP().toString().c_str());
 }
 
 static void netBegin() {
@@ -62,15 +65,19 @@ static void netBegin() {
     }
   }
 
+  WiFi.setHostname(DEVICE_NAME);
   wifiStartMs = millis();
-  if (cfg.wifiSsid.length() > 0) {
-    WiFi.setHostname(DEVICE_NAME);
+  bool wantSta = (cfg.wifiRole == WIFI_ROLE_STA || cfg.wifiRole == WIFI_ROLE_AP_STA) &&
+                 cfg.wifiSsid.length() > 0;
+  if (cfg.wifiRole != WIFI_ROLE_STA || !wantSta) {
+    startAp(wantSta);  // own hotspot (default), plus the modem connection when requested
+  } else {
     WiFi.mode(WIFI_STA);
+  }
+  if (wantSta) {
     WiFi.setSleep(false);
     WiFi.begin(cfg.wifiSsid.c_str(), cfg.wifiPass.c_str());
-    Serial.printf("[wifi] connecting to \"%s\" ...\n", cfg.wifiSsid.c_str());
-  } else {
-    startAp();
+    Serial.printf("[wifi] connecting to modem \"%s\" ...\n", cfg.wifiSsid.c_str());
   }
 }
 
@@ -84,9 +91,9 @@ static void wifiLoop() {
     return;
   }
   printed = false;
-  // No WiFi after 25 s -> open the setup hotspot so the page stays reachable
+  // Modem WiFi did not connect in time -> open our own hotspot so the page stays reachable
   if (!apOn && cfg.wifiSsid.length() > 0 && millis() - wifiStartMs > WIFI_FALLBACK_MS) {
-    startAp();
+    startAp(true);
   }
 }
 
@@ -118,7 +125,7 @@ static void serialCommands() {
     } else if (c == 's') {
       uint32_t a, b;
       String err;
-      if (parseIp(cfg.scanFrom, a) && parseIp(cfg.scanTo, b) && startScan(a, b, err)) {
+      if (resolveRange(a, b) && startScan(a, b, err)) {
         Serial.println(F("[scan] started"));
       } else {
         Serial.printf("[scan] not started: %s\n", err.c_str());
@@ -135,7 +142,7 @@ static void autoScanLoop() {
   String err;
   autoScanPending = false;
   lastScanEndMs = millis();
-  if (parseIp(cfg.scanFrom, a) && parseIp(cfg.scanTo, b)) {
+  if (resolveRange(a, b)) {
     startScan(a, b, err);
   }
 }
@@ -145,8 +152,7 @@ void setup() {
   delay(500);
   Serial.println();
   Serial.println(F("Miner Monitoring  (read only)"));
-  Serial.printf("Name: %s   (http://%s.local/)
-", DEVICE_NAME, DEVICE_NAME);
+  Serial.printf("Name: %s   (http://%s.local/)\n", DEVICE_NAME, DEVICE_NAME);
   Serial.println(F("Serial: 's' = start scan, 'p' = print table"));
 
   loadSettings();

@@ -125,6 +125,31 @@ static void scanWorker(void*) {
   vTaskDelete(NULL);
 }
 
+// Range derived from the Ethernet settings (network address + 1 ... broadcast - 1).
+// Falls back to the /24 around our IP when the network is larger than MAX_SCAN_HOSTS.
+static bool autoRange(uint32_t& from, uint32_t& to) {
+  uint32_t ip = ipU32(ETH.localIP());
+  if (ip == 0) return false;
+  uint32_t mask = ipU32(ETH.subnetMask());
+  if (mask == 0) mask = 0xFFFFFF00UL;
+  uint32_t net = ip & mask;
+  uint32_t bcast = net | ~mask;
+  from = net + 1;
+  to = bcast - 1;
+  if (to < from || (to - from) + 1 > MAX_SCAN_HOSTS) {
+    net = ip & 0xFFFFFF00UL;
+    from = net + 1;
+    to = net + 254;
+  }
+  return true;
+}
+
+// The range to scan: automatic (from the LAN settings) or the manual one.
+static bool resolveRange(uint32_t& from, uint32_t& to) {
+  if (cfg.scanAuto) return autoRange(from, to);
+  return parseIp(cfg.scanFrom, from) && parseIp(cfg.scanTo, to);
+}
+
 static bool startScan(uint32_t from, uint32_t to, String& err) {
   if (scanSt.running) {
     err = "scan already running";

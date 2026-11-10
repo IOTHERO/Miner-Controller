@@ -5,7 +5,9 @@
 // Everything the user can change from the web page. Stored in flash (NVS),
 // so the ESP32 never needs to be re-programmed to change a setting.
 struct Settings {
-  String wifiSsid, wifiPass, apPass;
+  String wifiSsid, wifiPass, apPass, apSsid;
+  uint8_t wifiRole;
+  bool scanAuto;
   bool ethStatic;
   String ethIp, ethGw, ethMask;
   String scanFrom, scanTo, ports;
@@ -30,6 +32,9 @@ static void loadSettings() {
   cfg.wifiSsid = p.getString("wSsid", DEF_WIFI_SSID);
   cfg.wifiPass = p.getString("wPass", DEF_WIFI_PASS);
   cfg.apPass = p.getString("apPass", DEF_AP_PASS);
+  cfg.apSsid = p.getString("apSsid", DEF_AP_SSID);
+  cfg.wifiRole = p.getUChar("wRole", DEF_WIFI_ROLE);
+  cfg.scanAuto = p.getBool("sAuto", DEF_SCAN_AUTO);
   cfg.ethStatic = p.getBool("eStatic", DEF_ETH_STATIC);
   cfg.ethIp = p.getString("eIp", DEF_ETH_IP);
   cfg.ethGw = p.getString("eGw", DEF_ETH_GW);
@@ -55,6 +60,9 @@ static void saveSettings() {
   p.putString("wSsid", cfg.wifiSsid);
   p.putString("wPass", cfg.wifiPass);
   p.putString("apPass", cfg.apPass);
+  p.putString("apSsid", cfg.apSsid);
+  p.putUChar("wRole", cfg.wifiRole);
+  p.putBool("sAuto", cfg.scanAuto);
   p.putBool("eStatic", cfg.ethStatic);
   p.putString("eIp", cfg.ethIp);
   p.putString("eGw", cfg.ethGw);

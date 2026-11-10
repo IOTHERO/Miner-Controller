@@ -57,11 +57,12 @@ static void handleStatus() {
   d["scan"]["done"] = (uint32_t)scanSt.done;
   d["scan"]["found"] = (uint32_t)scanSt.found;
   d["scan"]["lastSec"] = scanSt.finishedMs > scanSt.startedMs ? (scanSt.finishedMs - scanSt.startedMs) / 1000 : 0;
-  if (eip != 0) {
-    uint32_t net = eip & 0xFFFFFF00UL;
-    d["suggest"]["from"] = ipStr(net + 1);
-    d["suggest"]["to"] = ipStr(net + 254);
+  uint32_t ra, rb;
+  if (autoRange(ra, rb)) {
+    d["suggest"]["from"] = ipStr(ra);
+    d["suggest"]["to"] = ipStr(rb);
   }
+  d["wifi"]["role"] = cfg.wifiRole;
   d["sameSubnet"] = (eip != 0 && wip != 0 && (eip & 0xFFFFFF00UL) == (wip & 0xFFFFFF00UL));
   sendJson(d);
 }
@@ -101,11 +102,23 @@ static void handleScan() {
     sendResult(false, "bad request");
     return;
   }
+  if (b["auto"].is<bool>()) cfg.scanAuto = b["auto"].as<bool>();
+  uint32_t tmp;
+  if (!cfg.scanAuto) {
+    String f = b["from"] | "";
+    String t = b["to"] | "";
+    if (f.length() > 0 || t.length() > 0) {
+      if (!parseIp(f, tmp) || !parseIp(t, tmp)) {
+        sendResult(false, "invalid IP");
+        return;
+      }
+      cfg.scanFrom = f;
+      cfg.scanTo = t;
+    }
+  }
   uint32_t from, to;
-  String f = b["from"] | "";
-  String t = b["to"] | "";
-  if (!parseIp(f, from) || !parseIp(t, to)) {
-    sendResult(false, "invalid IP");
+  if (!resolveRange(from, to)) {
+    sendResult(false, "no range (Ethernet has no IP, or invalid manual range)");
     return;
   }
   String err;
@@ -113,8 +126,6 @@ static void handleScan() {
     sendResult(false, err.c_str());
     return;
   }
-  cfg.scanFrom = f;
-  cfg.scanTo = t;
   saveSettings();
   sendResult(true);
 }
@@ -172,6 +183,9 @@ static void handleDetail() {
 static void handleSettingsGet() {
   if (!auth()) return;
   JsonDocument d;
+  d["wifiRole"] = cfg.wifiRole;
+  d["apSsid"] = cfg.apSsid;
+  d["scanAuto"] = cfg.scanAuto;
   d["wifiSsid"] = cfg.wifiSsid;
   d["ethStatic"] = cfg.ethStatic;
   d["ethIp"] = cfg.ethIp;
@@ -207,6 +221,21 @@ static void handleSettingsPost() {
     if (v != cfg.wifiSsid) net = true;
     cfg.wifiSsid = v;
   }
+  if (b["wifiRole"].is<int>()) {
+    int v = b["wifiRole"].as<int>();
+    if (v >= WIFI_ROLE_AP && v <= WIFI_ROLE_AP_STA) {
+      if (v != cfg.wifiRole) net = true;
+      cfg.wifiRole = (uint8_t)v;
+    }
+  }
+  if (b["apSsid"].is<const char*>()) {
+    String v = b["apSsid"].as<String>();
+    if (v.length() >= 1 && v.length() <= 32) {
+      if (v != cfg.apSsid) net = true;
+      cfg.apSsid = v;
+    }
+  }
+  if (b["scanAuto"].is<bool>()) cfg.scanAuto = b["scanAuto"].as<bool>();
   if (b["wifiPass"].is<const char*>()) {
     String v = b["wifiPass"].as<String>();
     if (v.length() >= LIM_PASS_MIN || v.length() == 0) {

@@ -74,7 +74,7 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
       <div class="row">
         <label><span data-i="from"></span><input class="ltr" id="from"></label>
         <label><span data-i="to"></span><input class="ltr" id="to"></label>
-        <button class="btn" id="auto" data-i="autoRange"></button>
+        <label class="chk"><input type="checkbox" id="autoRange"><span data-i="autoRange"></span></label>
         <button class="btn pri" id="start" data-i="start"></button>
         <button class="btn dng hide" id="stop" data-i="stop"></button>
       </div>
@@ -135,9 +135,11 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
     <div class="card">
       <h2 data-i="netTitle"></h2>
       <div class="grid2">
+        <label><span data-i="wifiRole"></span><select id="s-role"></select></label>
+        <label><span data-i="apSsid"></span><input id="s-apssid"></label>
+        <label><span data-i="apPass"></span><input type="password" id="s-ap" data-ph="keep"></label>
         <label><span data-i="wifiSsid"></span><input id="s-ssid"></label>
         <label><span data-i="wifiPass"></span><input type="password" id="s-wpass" data-ph="keep"></label>
-        <label><span data-i="apPass"></span><input type="password" id="s-ap" data-ph="keep"></label>
         <label class="chk"><input type="checkbox" id="s-static"><span data-i="ethStatic"></span></label>
         <label>IP<input class="ltr" id="s-eip"></label>
         <label>Gateway<input class="ltr" id="s-egw"></label>
@@ -174,11 +176,11 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
 (function(){
   var T={
     title:'Miner Monitoring',tabScan:'اسکن و دستگاه‌ها',tabSet:'تنظیمات',scanTitle:'اسکن شبکه',from:'از IP',to:'تا IP',
-    autoRange:'رنج خودکار از شبکه',start:'شروع اسکن',stop:'توقف',autoScan:'اسکن خودکار هر',minutes:'دقیقه',
+    autoRange:'رنج خودکار از تنظیمات LAN',start:'شروع اسکن',stop:'توقف',autoScan:'اسکن خودکار هر',minutes:'دقیقه',
     manualIp:'افزودن دستی IP',add:'افزودن',found:'دستگاه‌های پیدا شده',autoPoll:'خواندن خودکار اطلاعات',clear:'پاک کردن لیست',
     cStatus:'وضعیت',cBrand:'برند',cModel:'مدل',cTemp:'دما',cPower:'توان',cPorts:'پورت‌ها',none:'هنوز دستگاهی پیدا نشده. اسکن را شروع کنید.',
     close:'بستن',boards:'بردها',pools:'استخرها',errors:'خطاها',readOnly:'فقط خواندن — هیچ فرمانی به ماینر ارسال نمی‌شود.',
-    netTitle:'شبکه',wifiSsid:'WiFi (SSID)',wifiPass:'رمز WiFi',apPass:'رمز هات‌اسپات راه‌اندازی',ethStatic:'IP ثابت برای Ethernet',
+    netTitle:'شبکه',wifiSsid:'WiFi مودم (برای آینده)',wifiPass:'رمز WiFi مودم',apPass:'رمز WiFi دستگاه',wifiRole:'حالت WiFi',roleAp:'هات‌اسپات خود دستگاه (پیش‌فرض)',roleSta:'اتصال به مودم',roleBoth:'هر دو',apSsid:'نام WiFi دستگاه',ethStatic:'IP ثابت برای Ethernet',
     scanSet:'اسکن',ports:'پورت‌ها (با کاما)',timeout:'تایم‌اوت اتصال (ms)',parallel:'اتصال موازی (۱ تا ۶)',pollSec:'فاصله‌ی خواندن (ثانیه)',
     unknown:'نمایش دستگاه‌های ناشناس (غیر ماینر)',secTitle:'امنیت صفحه‌ی وب',user:'نام کاربری',newPass:'رمز جدید',
     passWarn:'رمز پیش‌فرض را حتماً عوض کنید.',save:'ذخیره',reboot:'ری‌استارت دستگاه',
@@ -205,7 +207,7 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
       e.appendChild(document.createTextNode(label+' '));e.appendChild(h('b',null,[val]));c.appendChild(e)
     }
     chip('Ethernet',st.eth.up?st.eth.ip:'—',st.eth.up);
-    chip('WiFi',st.wifi.ip&&st.wifi.ip!=='0.0.0.0'?st.wifi.ip:(st.wifi.ap?'AP '+st.wifi.apIp:'—'),st.wifi.ip!=='0.0.0.0');
+    chip('WiFi',st.wifi.ip&&st.wifi.ip!=='0.0.0.0'?st.wifi.ip:(st.wifi.ap?'AP '+st.wifi.apIp:'—'),st.wifi.ap||st.wifi.ip!=='0.0.0.0');
     chip('RAM',st.heap+' KB');
     if(st.sameSubnet)c.appendChild(h('span',{cls:'chip warn'},[T.sameNet]));
     if(!st.eth.up)c.appendChild(h('span',{cls:'chip warn'},[T.noEth]));
@@ -229,7 +231,7 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
   function refreshDevices(){j('/api/devices').then(function(a){devs=a;renderList()}).catch(function(){})}
   function refreshStatus(){
     j('/api/status').then(function(s){
-      st=s;chips();
+      st=s;chips();applyRange();
       var sc=s.scan;
       $('#start').classList.toggle('hide',sc.running);$('#stop').classList.toggle('hide',!sc.running);
       var pct=sc.total?sc.done/sc.total*100:0;
@@ -272,12 +274,16 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
   function closeDetail(){sel=null;clearInterval(detTimer);$('#detail').classList.add('hide');renderList()}
 
   $('#start').addEventListener('click',function(){
-    j('/api/scan',{from:$('#from').value.trim(),to:$('#to').value.trim()}).then(function(r){
+    j('/api/scan',{auto:$('#autoRange').checked,from:$('#from').value.trim(),to:$('#to').value.trim()}).then(function(r){
       if(!r.ok)$('#scanTxt').textContent=r.error||'error';refreshStatus();
     });
   });
   $('#stop').addEventListener('click',function(){j('/api/scan/stop',{}).then(refreshStatus)});
-  $('#auto').addEventListener('click',function(){if(st&&st.suggest){$('#from').value=st.suggest.from;$('#to').value=st.suggest.to}});
+  function applyRange(){
+    var a=$('#autoRange').checked;$('#from').disabled=a;$('#to').disabled=a;
+    if(a&&st&&st.suggest){$('#from').value=st.suggest.from;$('#to').value=st.suggest.to}
+  }
+  $('#autoRange').addEventListener('change',function(){applyRange();j('/api/settings',{scanAuto:$('#autoRange').checked})});
   $('#add').addEventListener('click',function(){
     var v=$('#manual').value.trim();if(!v)return;
     j('/api/add',{ip:v}).then(function(r){if(r.ok){$('#manual').value='';refreshDevices()}else $('#scanTxt').textContent=r.error||'error'});
@@ -289,7 +295,7 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
   $('#poll').addEventListener('change',function(){j('/api/settings',{autoPoll:$('#poll').checked})});
 
   function fillSettings(c){
-    $('#from').value=c.scanFrom;$('#to').value=c.scanTo;
+    $('#from').value=c.scanFrom;$('#to').value=c.scanTo;$('#autoRange').checked=c.scanAuto;$('#s-role').value=String(c.wifiRole);$('#s-apssid').value=c.apSsid;applyRange();
     $('#autoscan').checked=c.autoScan;$('#autoMin').value=c.autoScanMin;$('#poll').checked=c.autoPoll;
     $('#s-ssid').value=c.wifiSsid;$('#s-static').checked=c.ethStatic;
     $('#s-eip').value=c.ethIp;$('#s-egw').value=c.ethGw;$('#s-emask').value=c.ethMask;
@@ -297,7 +303,7 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
     $('#s-poll').value=c.pollSec;$('#s-unk').checked=c.listUnknown;$('#s-user').value=c.authUser;
   }
   $('#save').addEventListener('click',function(){
-    var o={wifiSsid:$('#s-ssid').value,ethStatic:$('#s-static').checked,ethIp:$('#s-eip').value.trim(),
+    var o={wifiRole:parseInt($('#s-role').value,10),apSsid:$('#s-apssid').value.trim(),scanAuto:$('#autoRange').checked,wifiSsid:$('#s-ssid').value,ethStatic:$('#s-static').checked,ethIp:$('#s-eip').value.trim(),
       ethGw:$('#s-egw').value.trim(),ethMask:$('#s-emask').value.trim(),ports:$('#s-ports').value.trim(),
       timeoutMs:parseInt($('#s-to').value,10),parallel:parseInt($('#s-par').value,10),
       pollSec:parseInt($('#s-poll').value,10),listUnknown:$('#s-unk').checked,authUser:$('#s-user').value.trim(),
@@ -319,6 +325,8 @@ tbody tr:hover,tbody tr.sel{background:var(--row)}
   $('#t-scan').addEventListener('click',function(){tab('scan')});
   $('#t-set').addEventListener('click',function(){tab('set')});
 
+  [[0,T.roleAp],[1,T.roleSta],[2,T.roleBoth]].forEach(function(o){
+    var op=document.createElement('option');op.value=String(o[0]);op.textContent=o[1];$('#s-role').appendChild(op)});
   j('/api/settings').then(fillSettings);
   refreshStatus();refreshDevices();
   setInterval(refreshStatus,2000);
