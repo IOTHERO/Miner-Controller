@@ -106,6 +106,19 @@ static void startMdns() {
 
 static void ethLoop() {
   uint32_t ip = ipU32(ETH.localIP());
+  // Diagnostics: say why Ethernet has no IP, and fall back to DHCP if the fixed IP did not apply
+  static uint32_t lastDiag = 0;
+  static bool fellBack = false;
+  if (ip == 0 && millis() - lastDiag > 5000) {
+    lastDiag = millis();
+    Serial.printf("[eth] no IP yet: link=%s, fixed IP=%s\n", ETH.linkUp() ? "UP" : "DOWN",
+                  cfg.ethStatic ? "yes" : "no");
+    if (cfg.ethStatic && !fellBack && ETH.linkUp() && millis() > 15000) {
+      fellBack = true;
+      Serial.println(F("[eth] fixed IP was not applied -> switching to DHCP"));
+      ETH.config(IPAddress(), IPAddress(), IPAddress());
+    }
+  }
   if (ip != lastEthIp) {
     lastEthIp = ip;
     if (ip != 0) {

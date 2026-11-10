@@ -42,7 +42,7 @@
 // فقط حرف انگلیسی کوچک، عدد و خط تیره (بدون فاصله). نام شبکه‌ی دستگاه (hostname) و
 // آدرس http://<این نام>.local/ از آن ساخته می‌شود (اگر سیستم‌عامل شما mDNS را پشتیبانی کند).
 #ifndef DEVICE_NAME
-#define DEVICE_NAME        "minermonitor"
+#define DEVICE_NAME        "monitor"
 #endif
 
 // --- هات‌اسپات خود دستگاه (راه اصلی دسترسی به صفحه‌ی وب) -------------------------
@@ -50,10 +50,10 @@
 #define DEF_WIFI_ROLE      WIFI_ROLE_AP  // WIFI_ROLE_AP / WIFI_ROLE_STA / WIFI_ROLE_AP_STA
 #endif
 #ifndef DEF_AP_SSID
-#define DEF_AP_SSID        "MinerMonitor"   // نام WiFi که دستگاه می‌سازد (تا ۳۲ کاراکتر)
+#define DEF_AP_SSID        "Monitor"   // نام WiFi که دستگاه می‌سازد (تا ۳۲ کاراکتر)
 #endif
 #ifndef DEF_AP_PASS
-#define DEF_AP_PASS        "minerscan"   // رمز WiFi دستگاه، حداقل ۸ کاراکتر؛ حتماً عوض کنید
+#define DEF_AP_PASS        "scan1234"   // رمز WiFi دستگاه، حداقل ۸ کاراکتر؛ حتماً عوض کنید
 #endif
 // آدرس صفحه‌ی وب روی هات‌اسپات. باید با رنج LAN (مثلاً 192.168.1.x) فرق داشته باشد.
 #ifndef AP_IP
